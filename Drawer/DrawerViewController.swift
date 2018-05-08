@@ -107,7 +107,11 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         moveDrawerToClosestAnchor()
     }
     
-    // MARK: Configuration
+    open override var navigationItem: UINavigationItem {
+        return mainViewController.navigationItem
+    }
+
+    // MARK:- Configuration
     
     @objc public var minTopOffset: CGFloat = 60.0 {
         didSet {
@@ -136,7 +140,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
-    public var drawerCornerRadius: CGFloat = 14.0 {
+    @objc public var drawerCornerRadius: CGFloat = 14.0 {
         didSet {
             if isViewLoaded {
                 self.view.setNeedsLayout()
@@ -144,12 +148,13 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
-    // MARK: Public API
+    // MARK:- Public API
     
+    @objc(moveDrawerToLowestAnchorAnimated:)
     open func moveDrawerToLowestAnchor(animated: Bool) {
         moveDrawer(to: cappedDrawerAnchors.min() ?? 0.0, animated: animated)
     }
-    
+    @objc(moveDrawerToHighestAnchorAnimated:)
     open func moveDrawerToHighestAnchor(animated: Bool) {
         moveDrawer(to: cappedDrawerAnchors.max() ?? CGFloat.greatestFiniteMagnitude, animated: animated)
     }
