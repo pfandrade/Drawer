@@ -2,8 +2,8 @@
 //  UIViewController+Drawer.swift
 //  Drawer
 //
-//  Created by Paulo@OC on 07/05/2018.
-//  Copyright © 2018 Paulo@OC. All rights reserved.
+//  Created by Paulo Andrade on 07/05/2018.
+//  Copyright © 2018 Paulo Andrade. All rights reserved.
 //
 
 import UIKit
