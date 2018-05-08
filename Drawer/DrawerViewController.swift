@@ -212,13 +212,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                     draggingDrawer = false
                 }
             }
+        case .cancelled: fallthrough
+        case .failed: fallthrough
         case .ended:
-            if touchBeganOnDrawer || draggingDrawer {
+            if touchBeganOnDrawer || draggingDrawer || !cappedDrawerAnchors.contains(currentDrawerOffset) {
                 moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: self.view).y)
             }
-            draggingDrawer = false
-        case .cancelled: fallthrough
-        case .failed:
             draggingDrawer = false
         }
     }
@@ -252,11 +251,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             fallthrough
         case .changed:
             handleGesture()
+        case .cancelled: fallthrough
+        case .failed: fallthrough
         case .ended:
             handleGesture()
-            fallthrough
-        case .cancelled: fallthrough
-        case .failed:
             scrollView.bounces = internalScrollViewBounces
             gestureRecognizer.removeTarget(self, action: nil)
             break
@@ -274,9 +272,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         
     }
     private func moveDrawerToClosestAnchor(animated animate: Bool = false, velocity: CGFloat? = nil) {
-        moveDrawer(to: targetAnchor(for: currentDrawerOffset, at: velocity),
-                   animated: animate,
-                   velocity: velocity ?? 0.0)
+        let anchor = targetAnchor(for: currentDrawerOffset, at: velocity)
+        moveDrawer(to: anchor, animated: animate, velocity: velocity ?? 0.0)
     }
     
     private func moveDrawer(to offset: CGFloat, animated animate: Bool = false, velocity: CGFloat = 0.0) {
