@@ -161,9 +161,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     
     // MARK: - Handling pan gesture
+    @objc public private(set) var draggingDrawer = false
+    private var drawerOffsetAtDragStart: CGFloat = 0
     private var touchBeganOnDrawer = false
-    private var startingOffset: CGFloat = 0
-    private var draggingDrawer = false
     
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         if let hitView = view.hitTest(touch.location(in: self.view), with: nil) {
@@ -181,33 +181,33 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             let otherView = otherGestureRecognizer.view as? UIScrollView,
             otherView.isDescendant(of: self.drawerContainerView) {
             panGestureRecognizer.removeTarget(self, action: nil)
-            panGestureRecognizer.addTarget(self, action: #selector(handlePanGestureInsideDrawer(_:)))
+            panGestureRecognizer.addTarget(self, action: #selector(handleInternalScrollViewPanGesture(_:)))
         }
         return !touchBeganOnDrawer
     }
     
     @objc private func handlePanGesture(_ gestureRecognizer: UIPanGestureRecognizer) {
-        
         switch gestureRecognizer.state {
         case .possible: break
         case .began:
-            startingOffset = currentDrawerOffset
+            drawerOffsetAtDragStart = currentDrawerOffset
             if touchBeganOnDrawer {
                 draggingDrawer = true
             }
         case .changed:
             if touchBeganOnDrawer {
-                moveDrawer(to: startingOffset - gestureRecognizer.translation(in: self.view).y)
+                let newOffset = drawerOffsetAtDragStart - gestureRecognizer.translation(in: self.view).y
+                moveDrawer(to: newOffset)
             }
             else {
                 let currentTouchOffset = self.view.frame.height - gestureRecognizer.location(in: self.view).y
-                if currentTouchOffset < startingOffset {
+                if currentTouchOffset < drawerOffsetAtDragStart {
                     moveDrawer(to: currentTouchOffset)
                     draggingDrawer = true
                 }
                 else {
-                    if currentDrawerOffset != startingOffset {
-                        moveDrawer(to: startingOffset)
+                    if currentDrawerOffset != drawerOffsetAtDragStart {
+                        moveDrawer(to: drawerOffsetAtDragStart)
                     }
                     draggingDrawer = false
                 }
@@ -215,62 +215,68 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         case .cancelled: fallthrough
         case .failed: fallthrough
         case .ended:
-            if touchBeganOnDrawer || draggingDrawer || !cappedDrawerAnchors.contains(currentDrawerOffset) {
+            if !cappedDrawerAnchors.contains(currentDrawerOffset) {
                 moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: self.view).y)
             }
             draggingDrawer = false
         }
     }
     
-    private var internalScrollViewBounces = true
-    @objc private func handlePanGestureInsideDrawer(_ gestureRecognizer: UIPanGestureRecognizer) {
+    
+    private var scrollViewOffsetAtDragStart: CGPoint = .zero
+    private var translationAtDragStart: CGPoint = .zero
+    @objc private func handleInternalScrollViewPanGesture(_ gestureRecognizer: UIPanGestureRecognizer) {
         
         guard let scrollView = gestureRecognizer.view as? UIScrollView else {
             return
         }
 
-        let handleGesture = { () -> Void in
-            let translation = gestureRecognizer.translation(in: scrollView)
-            let isScrollingDown = translation.y > 0
-            let shouldScrollingDownTriggerGestureRecognizer = isScrollingDown && scrollView.contentOffset.y <= 0
-            let shouldScrollingUpTriggerGestureRecognizer = !isScrollingDown && self.currentDrawerOffset < (self.cappedDrawerAnchors.max() ?? 0.0)
-            
-            if shouldScrollingDownTriggerGestureRecognizer || shouldScrollingUpTriggerGestureRecognizer {
-                scrollView.bounces = false
-                self.handlePanGesture(gestureRecognizer)
-            } else {
-                scrollView.bounces = self.internalScrollViewBounces
-            }
-        }
-        
         switch gestureRecognizer.state {
         case .possible: break
-        case .began:
-            // save off the current "bounces" state so we can reset once the gesture is finished
-            internalScrollViewBounces = scrollView.bounces
-            fallthrough
+        case .began: break
         case .changed:
-            handleGesture()
+            let translation = gestureRecognizer.translation(in: scrollView)
+            let isScrollingDown = gestureRecognizer.velocity(in: scrollView).y > 0
+            let shouldScrollDownDragDrawer = isScrollingDown && scrollView.contentOffset.y <= 0
+            let shouldScrollUpDragDrawer = !isScrollingDown && self.currentDrawerOffset < (self.cappedDrawerAnchors.max() ?? 0.0)
+            
+            if shouldScrollDownDragDrawer || shouldScrollUpDragDrawer {
+                if !draggingDrawer {
+                    drawerOffsetAtDragStart = currentDrawerOffset
+                    translationAtDragStart = translation
+                    scrollViewOffsetAtDragStart = scrollView.contentOffset
+                }
+                draggingDrawer = true
+                
+                let scrolledAmount = translation.y - translationAtDragStart.y
+                self.moveDrawer(to: drawerOffsetAtDragStart - scrolledAmount)
+                scrollView.contentOffset = scrollViewOffsetAtDragStart
+                scrollView.showsVerticalScrollIndicator = false
+            }
+            else {
+                draggingDrawer = false
+                scrollView.showsVerticalScrollIndicator = true
+            }
         case .cancelled: fallthrough
         case .failed: fallthrough
         case .ended:
-            handleGesture()
-            scrollView.bounces = internalScrollViewBounces
             gestureRecognizer.removeTarget(self, action: nil)
-            break
+            
+            if !cappedDrawerAnchors.contains(currentDrawerOffset) {
+                moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: scrollView).y)
+            }
+            draggingDrawer = false
+            scrollViewOffsetAtDragStart = .zero
+            translationAtDragStart = .zero
         }
     }
     
     // MARK: aux
     var animating = false
     private var currentDrawerOffset: CGFloat {
-        if let presentationLayer = drawerContainerView.layer.presentation(), animating {
-            return presentationLayer.transform.m24
-        } else {
-            return -drawerContainerView.transform.ty
-        }
-        
+        return -drawerContainerView.transform.ty
     }
+    
     private func moveDrawerToClosestAnchor(animated animate: Bool = false, velocity: CGFloat? = nil) {
         let anchor = targetAnchor(for: currentDrawerOffset, at: velocity)
         moveDrawer(to: anchor, animated: animate, velocity: velocity ?? 0.0)
@@ -310,6 +316,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         let maxOffet = self.view.bounds.height - minTopOffset
         return drawerAnchors.map { min($0, maxOffet) }
     }
+    
     private func targetAnchor(for offset: CGFloat, at velocity: CGFloat? = nil) -> CGFloat {
         var offset = offset
         if var v = velocity {
