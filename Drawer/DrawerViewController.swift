@@ -58,7 +58,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         view.addSubview(mainView)
         setupConstraintsToFill(view: view, with: mainView)
         
-        // add the drawer content
+        // add the drawer container & content view controller
         let drawerContainer = drawerContainerView
         let drawerMask = drawerMaskingView
         let drawerContent = drawerContentViewController.view!
@@ -78,7 +78,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         drawerContainerRightConstraint?.isActive = true
         drawerContainerHeightConstraint?.isActive = true
         
-        // add the gesture recognizer
+        // add the panning gesture recognizer
         let panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
         panGestureRecognizer.delegate = self
         panGestureRecognizer.maximumNumberOfTouches = 1
@@ -101,6 +101,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     override public func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
+        // when we layout we must update the drawer container mask and shadow path
         let path = UIBezierPath(roundedRect: drawerContainerView.bounds,
                                 byRoundingCorners: [.topLeft, .topRight],
                                 cornerRadii:CGSize(width: drawerCornerRadius, height: drawerCornerRadius)).cgPath
@@ -113,6 +114,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         moveDrawerToClosestAnchor()
     }
     
+    // forward our navigation item to the main view controller
     open override var navigationItem: UINavigationItem {
         return mainViewController.navigationItem
     }
@@ -132,14 +134,22 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
+    // the drawer anchor positions measured from the bottom in points
+    // all positions will be capped to the maximum drawer offset given by the this controller's view height and the top drawerInset
+    // you can use a large value such as CGFloat.greatestFiniteMagnitude specify an anchor at the heighest possible value
     @objc public var drawerAnchors: [CGFloat] = [64.0, 250.0, CGFloat.greatestFiniteMagnitude] {
         didSet {
+            guard drawerAnchors.count > 0 else {
+                fatalError("There must be at least one anchor value")
+            }
             if isViewLoaded && !draggingDrawer {
                 moveDrawerToClosestAnchor()
             }
         }
     }
     
+    // this value is added to the height of the drawer to make sure
+    // this view controller's view doesn't show behind the drawer when animating with a spring effect
     @objc public var bottowOverflowHeight: CGFloat = 20 {
         didSet {
             if isViewLoaded {
@@ -148,6 +158,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
+    // the corner radius given to the top/left and top/right corners of the view container the drawer content
     @objc public var drawerCornerRadius: CGFloat = 14.0 {
         didSet {
             if isViewLoaded {
@@ -185,15 +196,22 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                   shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         
+        // if a scrollview panning gesture recognizer is about to start inside our drawer we want to add ourselves as one of its targets
         if  let panGestureRecognizer = otherGestureRecognizer as? UIPanGestureRecognizer,
             let otherView = otherGestureRecognizer.view as? UIScrollView,
             otherView.isDescendant(of: self.drawerContainerView) {
             panGestureRecognizer.removeTarget(self, action: nil)
             panGestureRecognizer.addTarget(self, action: #selector(handleInternalScrollViewPanGesture(_:)))
         }
+        
+        // prevent our panning gesture recognizer from doing anything if the gesture starts inside the drawer
         return !touchBeganOnDrawer
     }
     
+    // handle our panning gesture recognizer
+    // this is responsible for:
+    // - gestures that start on the drawer and don't have another gesture recognizer contending with it. For example, if you touch down on the drawer handle.
+    // - moving the drawer out of the way for gestures that start over our mainViewController's view and move over the drawer
     @objc private func handlePanGesture(_ gestureRecognizer: UIPanGestureRecognizer) {
         switch gestureRecognizer.state {
         case .possible: break
@@ -233,6 +251,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     private var scrollViewOffsetAtDragStart: CGPoint = .zero
     private var translationAtDragStart: CGPoint = .zero
+    
+    // when panning over a scrollview inside our drawer we might want to move the drawer up or down
+    // depending on the current scrollview offset
     @objc private func handleInternalScrollViewPanGesture(_ gestureRecognizer: UIPanGestureRecognizer) {
         
         guard let scrollView = gestureRecognizer.view as? UIScrollView else {
