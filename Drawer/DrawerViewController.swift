@@ -47,6 +47,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }()
     
     private var drawerContainerHeightConstraint: NSLayoutConstraint?
+    private var drawerContainerLeftConstraint: NSLayoutConstraint?
+    private var drawerContainerRightConstraint: NSLayoutConstraint?
     
     open override func loadView() {
         let view = UIView()
@@ -68,10 +70,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         // setup drawer container constraints
         view.addSubview(drawerContainer)
         drawerContainer.translatesAutoresizingMaskIntoConstraints = false
-        drawerContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
-        drawerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
         drawerContainer.topAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+        drawerContainerLeftConstraint = drawerContainer.leftAnchor.constraint(equalTo: view.leftAnchor)
+        drawerContainerRightConstraint = drawerContainer.rightAnchor.constraint(equalTo: view.rightAnchor)
         drawerContainerHeightConstraint = drawerContainer.heightAnchor.constraint(equalTo: view.heightAnchor)
+        drawerContainerLeftConstraint?.isActive = true
+        drawerContainerRightConstraint?.isActive = true
         drawerContainerHeightConstraint?.isActive = true
         
         // add the gesture recognizer
@@ -88,7 +92,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     override open func updateViewConstraints() {
-        drawerContainerHeightConstraint?.constant = bottowOverflowHeight - minTopOffset;
+        drawerContainerHeightConstraint?.constant = bottowOverflowHeight - drawerInsets.top;
+        drawerContainerRightConstraint?.constant = -drawerInsets.right
+        drawerContainerLeftConstraint?.constant = drawerInsets.left
         super.updateViewConstraints()
     }
     
@@ -113,7 +119,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
 
     // MARK:- Configuration
     
-    @objc public var minTopOffset: CGFloat = 60.0 {
+    // the minimum distance the drawer should keep to the left, right & top margins
+    // the bottom value is ignored
+    @objc public var drawerInsets: UIEdgeInsets = UIEdgeInsetsMake(60.0, 10, 0, 10) {
         didSet {
             if isViewLoaded {
                 self.view.setNeedsUpdateConstraints()
@@ -277,13 +285,21 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return -drawerContainerView.transform.ty
     }
     
+    private var maxDrawerOffset: CGFloat {
+        return self.view.bounds.height-drawerInsets.top
+    }
+    
+    private var cappedDrawerAnchors: [CGFloat] {
+        return drawerAnchors.map { min($0, maxDrawerOffset) }
+    }
+    
     private func moveDrawerToClosestAnchor(animated animate: Bool = false, velocity: CGFloat? = nil) {
         let anchor = targetAnchor(for: currentDrawerOffset, at: velocity)
         moveDrawer(to: anchor, animated: animate, velocity: velocity ?? 0.0)
     }
     
     private func moveDrawer(to offset: CGFloat, animated animate: Bool = false, velocity: CGFloat = 0.0) {
-        let offset = min(offset, self.view.bounds.height-minTopOffset)
+        let offset = min(offset, maxDrawerOffset)
         
         let updateTransformBlock = { () -> Void in
             self.drawerContainerView.transform = CGAffineTransform(translationX: 0, y: -offset)
@@ -308,13 +324,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         else {
             updateTransformBlock()
         }
-
-        
-    }
     
-    private var cappedDrawerAnchors: [CGFloat] {
-        let maxOffet = self.view.bounds.height - minTopOffset
-        return drawerAnchors.map { min($0, maxOffet) }
     }
     
     private func targetAnchor(for offset: CGFloat, at velocity: CGFloat? = nil) -> CGFloat {

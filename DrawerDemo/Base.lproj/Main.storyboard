@@ -91,6 +91,7 @@
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="JmF-Yy-s1B">
                                 <rect key="frame" x="0.0" y="60" width="375" height="607"/>
                                 <color key="backgroundColor" white="1" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <inset key="scrollIndicatorInsets" minX="0.0" minY="0.0" maxX="0.0" maxY="20"/>
                                 <sections/>
                                 <connections>
                                     <outlet property="dataSource" destination="cgC-lH-n5R" id="4qq-Sb-9es"/>
@@ -114,6 +115,7 @@
                     <size key="freeformSize" width="375" height="667"/>
                     <connections>
                         <outlet property="handleView" destination="DxS-zh-eQH" id="mdH-QZ-V4G"/>
+                        <outlet property="tableView" destination="JmF-Yy-s1B" id="F84-Da-sny"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="7Tk-Zj-wHP" userLabel="First Responder" sceneMemberID="firstResponder"/>

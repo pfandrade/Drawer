@@ -13,12 +13,14 @@ class PlacesViewController: UIViewController, UITableViewDelegate, UITableViewDa
     
     weak var delegate: PlacesViewControllerDelegate?
     
+    @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var handleView: UIView!
     
     override func viewDidLoad() {
         super.viewDidLoad()
 
         handleView.layer.cornerRadius = 4.0
+        self.tableView.contentInset = UIEdgeInsetsMake(0, 0, 20, 0)
     }
 
     
