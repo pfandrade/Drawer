@@ -123,7 +123,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     // the minimum distance the drawer should keep to the left, right & top margins
     // the bottom value is ignored
-    @objc public var drawerInsets: UIEdgeInsets = UIEdgeInsetsMake(60.0, 10, 0, 10) {
+    @objc public var drawerInsets: UIEdgeInsets = UIEdgeInsetsMake(60.0, 0, 0, 0) {
         didSet {
             if isViewLoaded {
                 self.view.setNeedsUpdateConstraints()
