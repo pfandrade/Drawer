@@ -293,7 +293,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                   shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        
+        return true
+    }
+    
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         // if a scrollview panning gesture recognizer is about to start inside our drawer we want to add ourselves as one of its targets
         if  let panGestureRecognizer = otherGestureRecognizer as? UIPanGestureRecognizer,
             let otherView = otherGestureRecognizer.view as? UIScrollView,
@@ -302,8 +305,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             panGestureRecognizer.addTarget(self, action: #selector(handleInternalScrollViewPanGesture(_:)))
         }
         
-        // prevent our panning gesture recognizer from doing anything if the gesture starts inside the drawer
-        return !touchBeganOnDrawer
+        // require any GR inside the drawer to fail before we can recognize
+        return touchBeganOnDrawer
     }
     
     // handle our panning gesture recognizer
