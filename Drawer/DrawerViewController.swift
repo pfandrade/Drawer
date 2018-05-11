@@ -111,7 +111,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        moveDrawerToClosestAnchor()
+        
+        if !isDrawerOffscreen {
+            moveDrawerToClosestAnchor(animated: animated)
+        }
     }
     
     // forward our navigation item to the main view controller
@@ -178,6 +181,19 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         moveDrawer(to: cappedDrawerAnchors.max() ?? CGFloat.greatestFiniteMagnitude, animated: animated)
     }
     
+    @objc open func moveDrawerToAnchor(at offset: CGFloat, animated: Bool) {
+        let target = targetAnchor(for: offset)
+        moveDrawer(to: target, animated: animated)
+    }
+    
+    @objc(moveDrawerOffscreeAnimated:)
+    open func moveDrawerOffscreen(animated: Bool) {
+        moveDrawer(to: offscreenDrawerOffset, animated: animated)
+    }
+    
+    @objc public var isDrawerOffscreen: Bool {
+        return currentDrawerOffset < 0
+    }
     
     // MARK: - Handling pan gesture
     @objc public private(set) var draggingDrawer = false
@@ -185,6 +201,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     private var touchBeganOnDrawer = false
     
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard !isDrawerOffscreen  else {
+            return false
+        }
+        
         if let hitView = view.hitTest(touch.location(in: self.view), with: nil) {
             touchBeganOnDrawer = hitView.isDescendant(of: self.drawerContainerView)
         } else {
@@ -309,6 +329,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     private var maxDrawerOffset: CGFloat {
         return self.view.bounds.height-drawerInsets.top
     }
+    
+    private let offscreenDrawerOffset: CGFloat = -50
     
     private var cappedDrawerAnchors: [CGFloat] {
         return drawerAnchors.map { min($0, maxDrawerOffset) }

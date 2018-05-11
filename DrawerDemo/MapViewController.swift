@@ -12,6 +12,11 @@ import Drawer
 
 class MapViewController: UIViewController, PlacesViewControllerDelegate {
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        drawerViewController?.moveDrawerToLowestAnchor(animated: true)
+    }
+    
     @IBOutlet weak var mapView: MKMapView!
     
     func placesViewController(_ placesViewController: PlacesViewController, didSelectPlace place: PlacesViewController.Place) {

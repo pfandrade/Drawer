@@ -23,6 +23,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         placesViewController.delegate = mapViewController
         
         let drawerViewController = DrawerViewController(mainViewController: mapViewController, drawerContentViewController: placesViewController)
+        drawerViewController.moveDrawerOffscreen(animated: false)
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = drawerViewController
         window?.makeKeyAndVisible()
