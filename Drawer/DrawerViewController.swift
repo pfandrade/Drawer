@@ -79,6 +79,14 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return view
     }()
     
+    public private(set) lazy var dimmingView: UIView = { () -> UIView in
+        let view = UIView()
+        view.backgroundColor = UIColor(white: 0.0, alpha: 0.5)
+        let tapGR = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        view.addGestureRecognizer(tapGR)
+        return view
+    }()
+    
     private lazy var drawerMaskingView: UIView = { () -> UIView in
         let view = UIView()
         view.backgroundColor = UIColor.clear
@@ -94,6 +102,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     open override func loadView() {
         let view = UIView()
+        
+        // add the dimming view
+        view.addSubview(dimmingView)
+        setupConstraintsToFill(view: view, with: dimmingView)
         
         // add the drawer container
         let drawerContainer = drawerContainerView
@@ -137,6 +149,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         else {
             moveDrawerOffscreen(animated: false)
         }
+        updateDimmingView(for: currentDrawerOffset)
     }
     
     override open func updateViewConstraints() {
@@ -218,6 +231,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
+    @objc public var dimBackgroundStartingAtOffset: CGFloat = 250 {
+        didSet {
+            updateDimmingView(for: currentDrawerOffset)
+        }
+    }
+    
     // MARK:- Public API
     
     @objc(moveDrawerToLowestAnchorAnimated:)
@@ -243,7 +262,18 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return currentDrawerOffset < 0
     }
     
-    // MARK: - Handling pan gesture
+    // MARK: - Gestures
+    
+    // MARK: tap
+    
+    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        if gestureRecognizer.state == .ended {
+            let target = cappedDrawerAnchors.sorted().reversed().first { $0 <= dimBackgroundStartingAtOffset } ?? 0.0
+            moveDrawerToAnchor(at: target, animated: true)
+        }
+    }
+    
+    // MARK: pan
     @objc public private(set) var draggingDrawer = false
     private var drawerOffsetAtDragStart: CGFloat = 0
     private var touchBeganOnDrawer = false
@@ -395,6 +425,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         
         let updateTransformBlock = { () -> Void in
             self.drawerContainerView.transform = CGAffineTransform(translationX: 0, y: -offset)
+            self.updateDimmingView(for: offset)
         }
 
         let finish = { (finished: Bool) -> Void in
@@ -485,5 +516,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         if shouldPerformAppearanceTransition {
             viewController.endAppearanceTransition()
         }
+    }
+    
+    private func updateDimmingView(for offset: CGFloat) {
+        dimmingView.alpha =
+            min(
+                max((offset-dimBackgroundStartingAtOffset)/(maxDrawerOffset-dimBackgroundStartingAtOffset), 0),
+                1)
     }
 }
