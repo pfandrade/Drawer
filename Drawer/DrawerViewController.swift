@@ -10,18 +10,60 @@ import UIKit
 
 public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate {
 
-    @objc public private(set) var mainViewController: UIViewController
-    @objc public private(set) var drawerContentViewController: UIViewController
+    @objc public private(set) var mainViewController: UIViewController? {
+        willSet {
+            if let mainVC = mainViewController {
+                prepareViewControllerForRemoval(mainVC)
+                mainVC.willMove(toParentViewController: nil)
+                mainVC.removeFromParentViewController()
+            }
+        }
+        didSet {
+            if let mainVC = mainViewController {
+                mainVC.willMove(toParentViewController: self)
+                self.addChildViewController(mainVC)
+                if isViewLoaded {
+                    addView(from: mainVC, asSubviewOf: self.view)
+                }
+            }
+        }
+    }
+    @objc public var drawerContentViewController: UIViewController? {
+        willSet {
+            if let drawerContent = drawerContentViewController {
+                prepareViewControllerForRemoval(drawerContent)
+                drawerContent.willMove(toParentViewController: nil)
+                drawerContent.removeFromParentViewController()
+            }
+        }
+        didSet {
+            if let drawerContent = drawerContentViewController {
+                drawerContent.willMove(toParentViewController: self)
+                self.addChildViewController(drawerContent)
+                if isViewLoaded {
+                    addView(from: drawerContent, asSubviewOf: self.drawerMaskingView)
+                }
+            }
+        }
+    }
     
-    @objc public init(mainViewController: UIViewController, drawerContentViewController: UIViewController) {
-        self.mainViewController = mainViewController
-        self.drawerContentViewController = drawerContentViewController
+    @objc public init() {
         super.init(nibName: nil, bundle: nil)
-        // establish the parent/child relationships
-        addChildViewController(mainViewController)
-        mainViewController.didMove(toParentViewController: self)
-        addChildViewController(drawerContentViewController)
-        drawerContentViewController.didMove(toParentViewController: self)
+    }
+    
+    @objc public convenience init(mainViewController: UIViewController) {
+        self.init()
+        self.mainViewController = mainViewController
+        mainViewController.willMove(toParentViewController: self)
+        self.addChildViewController(mainViewController)
+
+    }
+    
+    @objc public convenience init(mainViewController: UIViewController, drawerContentViewController: UIViewController) {
+        self.init(mainViewController: mainViewController)
+        self.drawerContentViewController = drawerContentViewController
+        drawerContentViewController.willMove(toParentViewController: self)
+        self.addChildViewController(drawerContentViewController)
     }
     
     required public init?(coder aDecoder: NSCoder) {
@@ -53,19 +95,11 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     open override func loadView() {
         let view = UIView()
         
-        // add the main view controller
-        let mainView = mainViewController.view!
-        view.addSubview(mainView)
-        setupConstraintsToFill(view: view, with: mainView)
-        
-        // add the drawer container & content view controller
+        // add the drawer container
         let drawerContainer = drawerContainerView
         let drawerMask = drawerMaskingView
-        let drawerContent = drawerContentViewController.view!
         drawerContainer.addSubview(drawerMask)
-        drawerMask.addSubview(drawerContent)
         setupConstraintsToFill(view: drawerContainer, with: drawerMask)
-        setupConstraintsToFill(view: drawerMask, with: drawerContent)
         
         // setup drawer container constraints
         view.addSubview(drawerContainer)
@@ -89,6 +123,20 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         
         self.drawerContainerView = drawerContainer
         self.view = view
+    }
+    
+    public override func viewDidLoad() {
+        super.viewDidLoad()
+        if let mainVC = mainViewController {
+            addView(from: mainVC, asSubviewOf: self.view)
+        }
+        
+        if let drawerContent = drawerContentViewController {
+            addView(from: drawerContent, asSubviewOf: self.drawerMaskingView)
+        }
+        else {
+            moveDrawerOffscreen(animated: false)
+        }
     }
     
     override open func updateViewConstraints() {
@@ -119,7 +167,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     // forward our navigation item to the main view controller
     open override var navigationItem: UINavigationItem {
-        return mainViewController.navigationItem
+        return mainViewController?.navigationItem  ?? super.navigationItem
     }
 
     // MARK:- Configuration
@@ -327,7 +375,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     private var maxDrawerOffset: CGFloat {
-        return self.view.bounds.height-drawerInsets.top
+        let viewHeight: CGFloat = self.isViewLoaded ? self.view.bounds.height : 480
+        return viewHeight-drawerInsets.top
     }
     
     private let offscreenDrawerOffset: CGFloat = -50
@@ -348,6 +397,16 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             self.drawerContainerView.transform = CGAffineTransform(translationX: 0, y: -offset)
         }
 
+        let finish = { (finished: Bool) -> Void in
+            if finished && self.currentDrawerOffset < 0 {
+                self.drawerContainerView.isHidden = true
+            }
+        }
+        
+        if offset >= 0 {
+            self.drawerContainerView.isHidden = false
+        }
+        
         if (animate) {
             let distance = abs(currentDrawerOffset - offset)
             let initialVelocity = velocity / distance
@@ -362,10 +421,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                             updateTransformBlock()
             }, completion: { finished -> Void in
                 self.animating = false
+                finish(finished)
             })
         }
         else {
             updateTransformBlock()
+            finish(true)
         }
     
     }
@@ -395,4 +456,34 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         subview.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
     }
     
+    private func prepareViewControllerForRemoval(_ viewController: UIViewController) {
+        guard childViewControllers.contains(viewController) else {
+            return
+        }
+        if isViewLoaded && viewController.isViewLoaded && viewController.view.superview == self.view {
+            let shouldPerformAppearanceTransition = self.view.window != nil
+            if shouldPerformAppearanceTransition {
+                viewController.beginAppearanceTransition(false, animated: false)
+            }
+            viewController.view.removeFromSuperview()
+            if shouldPerformAppearanceTransition {
+                viewController.endAppearanceTransition()
+            }
+        }
+    }
+    
+    private func addView(from viewController: UIViewController, asSubviewOf parentView: UIView) {
+        guard let view = viewController.view else {
+            return
+        }
+        let shouldPerformAppearanceTransition = parentView.window != nil
+        if shouldPerformAppearanceTransition {
+            viewController.beginAppearanceTransition(true, animated: false)
+        }
+        parentView.insertSubview(view, at: 0)
+        setupConstraintsToFill(view: parentView, with: view)
+        if shouldPerformAppearanceTransition {
+            viewController.endAppearanceTransition()
+        }
+    }
 }
