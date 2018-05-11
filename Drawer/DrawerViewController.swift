@@ -99,6 +99,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     private var drawerContainerHeightConstraint: NSLayoutConstraint?
     private var drawerContainerLeftConstraint: NSLayoutConstraint?
     private var drawerContainerRightConstraint: NSLayoutConstraint?
+    private var drawerContainerMaxWidthConstraint: NSLayoutConstraint?
     
     open override func loadView() {
         let view = UIView()
@@ -117,12 +118,21 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         view.addSubview(drawerContainer)
         drawerContainer.translatesAutoresizingMaskIntoConstraints = false
         drawerContainer.topAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
-        drawerContainerLeftConstraint = drawerContainer.leftAnchor.constraint(equalTo: view.leftAnchor)
-        drawerContainerRightConstraint = drawerContainer.rightAnchor.constraint(equalTo: view.rightAnchor)
+        let centerConstraint = drawerContainer.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+        centerConstraint.priority = .defaultLow
+        centerConstraint.isActive = true
+        
+        drawerContainerLeftConstraint = drawerContainer.leftAnchor.constraint(greaterThanOrEqualTo: view.leftAnchor)
+        drawerContainerRightConstraint = drawerContainer.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor)
         drawerContainerHeightConstraint = drawerContainer.heightAnchor.constraint(equalTo: view.heightAnchor)
+        drawerContainerHeightConstraint?.priority = UILayoutPriority(rawValue: 900)
+        drawerContainerMaxWidthConstraint = drawerContainer.widthAnchor.constraint(equalToConstant: maxDrawerWidth)
+        drawerContainerMaxWidthConstraint?.priority = UILayoutPriority.defaultHigh
+        
         drawerContainerLeftConstraint?.isActive = true
         drawerContainerRightConstraint?.isActive = true
         drawerContainerHeightConstraint?.isActive = true
+        drawerContainerMaxWidthConstraint?.isActive = true
         
         // add the panning gesture recognizer
         let panGestureRecognizer = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
@@ -156,6 +166,15 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         drawerContainerHeightConstraint?.constant = max(-view.frame.height, bottowOverflowHeight - drawerInsets.top);
         drawerContainerRightConstraint?.constant = -drawerInsets.right
         drawerContainerLeftConstraint?.constant = drawerInsets.left
+        drawerContainerMaxWidthConstraint?.constant = maxDrawerWidth
+        
+        if pinDrawerToEdge.contains([.left]) {
+            updateConstraintsToPinDrawerLeft()
+        } else if pinDrawerToEdge.contains([.right]) {
+            updateConstraintsToPinDrawerRight()
+        } else {
+            updateConstraintsToCenterDrawer()
+        }
         super.updateViewConstraints()
     }
     
@@ -236,6 +255,23 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     @objc public var dimBackgroundStartingAtOffset: CGFloat = 250 {
         didSet {
             updateDimmingView(for: currentDrawerOffset)
+        }
+    }
+    
+    @objc public var maxDrawerWidth: CGFloat = CGFloat.greatestFiniteMagnitude {
+        didSet {
+            if isViewLoaded {
+                self.view.setNeedsUpdateConstraints()
+            }
+        }
+    }
+    
+    // only left,right allowed
+    @objc public var pinDrawerToEdge: UIRectEdge = UIRectEdge.left {
+        didSet {
+            if isViewLoaded {
+                self.view.setNeedsUpdateConstraints()
+            }
         }
     }
     
@@ -538,5 +574,44 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             dimmingView.alpha = 0.0
         }
     }
+    
+    
+    private func updateConstraintsToPinDrawerLeft() {
+        if drawerContainerLeftConstraint?.relation != NSLayoutRelation.equal {
+            drawerContainerLeftConstraint?.isActive = false
+            drawerContainerLeftConstraint = drawerContainerView.leftAnchor.constraint(equalTo: view.leftAnchor, constant: drawerInsets.left)
+            drawerContainerLeftConstraint?.isActive = true
+        }
+        if drawerContainerRightConstraint?.relation != NSLayoutRelation.lessThanOrEqual {
+            drawerContainerRightConstraint?.isActive = false
+            drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor, constant: -drawerInsets.right)
+            drawerContainerRightConstraint?.isActive = true
+        }
+    }
+    
+    private func updateConstraintsToPinDrawerRight() {
+        if drawerContainerRightConstraint?.relation != NSLayoutRelation.equal {
+            drawerContainerRightConstraint?.isActive = false
+            drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -drawerInsets.right)
+            drawerContainerRightConstraint?.isActive = true
+        }
+        if drawerContainerLeftConstraint?.relation != NSLayoutRelation.greaterThanOrEqual {
+            drawerContainerLeftConstraint?.isActive = false
+            drawerContainerLeftConstraint = drawerContainerView.leftAnchor.constraint(greaterThanOrEqualTo: view.leftAnchor, constant: drawerInsets.left)
+            drawerContainerLeftConstraint?.isActive = true
+        }
+    }
+    
+    private func updateConstraintsToCenterDrawer() {
+        if drawerContainerLeftConstraint?.relation != NSLayoutRelation.greaterThanOrEqual {
+            drawerContainerLeftConstraint?.isActive = false
+            drawerContainerLeftConstraint = drawerContainerView.leftAnchor.constraint(greaterThanOrEqualTo: view.leftAnchor, constant: drawerInsets.left)
+            drawerContainerLeftConstraint?.isActive = true
+        }
+        if drawerContainerRightConstraint?.relation != NSLayoutRelation.lessThanOrEqual {
+            drawerContainerRightConstraint?.isActive = false
+            drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor, constant: -drawerInsets.right)
+            drawerContainerRightConstraint?.isActive = true
+        }
     }
 }

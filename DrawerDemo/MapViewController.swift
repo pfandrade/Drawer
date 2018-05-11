@@ -12,9 +12,15 @@ import Drawer
 
 class MapViewController: UIViewController, PlacesViewControllerDelegate {
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updateDrawer(for: self.view.frame.size)
+    }
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         drawerViewController?.moveDrawerToLowestAnchor(animated: true)
+        
     }
     
     @IBOutlet weak var mapView: MKMapView!
@@ -27,5 +33,18 @@ class MapViewController: UIViewController, PlacesViewControllerDelegate {
     }
     
 
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        updateDrawer(for: size)
+    }
     
+    func updateDrawer(for size: CGSize) {
+        if size.width < 500 {
+            drawerViewController?.maxDrawerWidth = CGFloat.greatestFiniteMagnitude
+            drawerViewController?.dimBackgroundStartingAtOffset = 250
+        } else {
+            drawerViewController?.maxDrawerWidth = 270
+            drawerViewController?.dimBackgroundStartingAtOffset = CGFloat.greatestFiniteMagnitude
+        }
+    }
 }
