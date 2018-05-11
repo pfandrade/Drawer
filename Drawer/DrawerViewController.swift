@@ -153,7 +153,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     override open func updateViewConstraints() {
-        drawerContainerHeightConstraint?.constant = bottowOverflowHeight - drawerInsets.top;
+        drawerContainerHeightConstraint?.constant = max(-view.frame.height, bottowOverflowHeight - drawerInsets.top);
         drawerContainerRightConstraint?.constant = -drawerInsets.right
         drawerContainerLeftConstraint?.constant = drawerInsets.left
         super.updateViewConstraints()
@@ -168,6 +168,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                                 cornerRadii:CGSize(width: drawerCornerRadius, height: drawerCornerRadius)).cgPath
         drawerContainerView.layer.shadowPath = path
         (drawerMaskingView.layer.mask as! CAShapeLayer).path = path
+        
+        updateDimmingView(for: currentDrawerOffset)
     }
     
     open override func viewWillAppear(_ animated: Bool) {
@@ -267,6 +269,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     // MARK: tap
     
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        guard !isDrawerOffscreen else {
+            return
+        }
+        
         if gestureRecognizer.state == .ended {
             let target = cappedDrawerAnchors.sorted().reversed().first { $0 <= dimBackgroundStartingAtOffset } ?? 0.0
             moveDrawerToAnchor(at: target, animated: true)
@@ -522,9 +528,15 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     private func updateDimmingView(for offset: CGFloat) {
-        dimmingView.alpha =
-            min(
-                max((offset-dimBackgroundStartingAtOffset)/(maxDrawerOffset-dimBackgroundStartingAtOffset), 0),
-                1)
+        let delta = max(offset, 0)-dimBackgroundStartingAtOffset
+        let maxDelta = max(maxDrawerOffset-dimBackgroundStartingAtOffset, 0)
+        if maxDelta > 0 {
+            let ratio = delta/maxDelta
+            dimmingView.alpha = min(max(ratio, 0), 1)
+        }
+        else {
+            dimmingView.alpha = 0.0
+        }
+    }
     }
 }
