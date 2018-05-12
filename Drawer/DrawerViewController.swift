@@ -191,6 +191,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         updateDimmingView(for: currentDrawerOffset)
     }
     
+    @available(iOS 11.0, *)
+    public override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        invalidateDrawerAnchors()
+    }
+    
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -207,7 +213,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     // MARK:- Configuration
     
     // the minimum distance the drawer should keep to the left, right & top margins
-    // the bottom value is ignored
+    // the bottom value is ignored, instead the first value of drawerAnchors is used
     @objc public var drawerInsets: UIEdgeInsets = UIEdgeInsetsMake(60.0, 0, 0, 0) {
         didSet {
             if isViewLoaded {
@@ -279,11 +285,11 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     @objc(moveDrawerToLowestAnchorAnimated:)
     open func moveDrawerToLowestAnchor(animated: Bool) {
-        moveDrawer(to: cappedDrawerAnchors.min() ?? 0.0, animated: animated)
+        moveDrawer(to: effectiveDrawerAnchors.min() ?? 0.0, animated: animated)
     }
     @objc(moveDrawerToHighestAnchorAnimated:)
     open func moveDrawerToHighestAnchor(animated: Bool) {
-        moveDrawer(to: cappedDrawerAnchors.max() ?? CGFloat.greatestFiniteMagnitude, animated: animated)
+        moveDrawer(to: effectiveDrawerAnchors.max() ?? CGFloat.greatestFiniteMagnitude, animated: animated)
     }
     
     @objc open func moveDrawerToAnchor(at offset: CGFloat, animated: Bool) {
@@ -300,6 +306,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return currentDrawerOffset < 0
     }
     
+    @objc public func invalidateDrawerAnchors() {
+        if !draggingDrawer && !isDrawerOffscreen && isViewLoaded {
+            moveDrawerToClosestAnchor(animated: self.view.window != nil)
+        }
+    }
+    
     // MARK: - Gestures
     
     // MARK: tap
@@ -310,7 +322,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
         
         if gestureRecognizer.state == .ended {
-            let target = cappedDrawerAnchors.sorted().reversed().first { $0 <= dimBackgroundStartingAtOffset } ?? 0.0
+            let target = effectiveDrawerAnchors.sorted().reversed().first { $0 <= dimBackgroundStartingAtOffset } ?? 0.0
             moveDrawerToAnchor(at: target, animated: true)
         }
     }
@@ -384,7 +396,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         case .cancelled: fallthrough
         case .failed: fallthrough
         case .ended:
-            if !cappedDrawerAnchors.contains(currentDrawerOffset) {
+            if !effectiveDrawerAnchors.contains(currentDrawerOffset) {
                 moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: self.view).y)
             }
             draggingDrawer = false
@@ -410,7 +422,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             let translation = gestureRecognizer.translation(in: scrollView)
             let isScrollingDown = gestureRecognizer.velocity(in: scrollView).y > 0
             let shouldScrollDownDragDrawer = isScrollingDown && scrollView.contentOffset.y <= 0
-            let shouldScrollUpDragDrawer = !isScrollingDown && self.currentDrawerOffset < (self.cappedDrawerAnchors.max() ?? 0.0)
+            let shouldScrollUpDragDrawer = !isScrollingDown && self.currentDrawerOffset < (self.effectiveDrawerAnchors.max() ?? 0.0)
             
             if shouldScrollDownDragDrawer || shouldScrollUpDragDrawer {
                 if !draggingDrawer {
@@ -434,7 +446,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         case .ended:
             gestureRecognizer.removeTarget(self, action: nil)
             
-            if !cappedDrawerAnchors.contains(currentDrawerOffset) {
+            if !effectiveDrawerAnchors.contains(currentDrawerOffset) {
                 moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: scrollView).y)
             }
             draggingDrawer = false
@@ -456,7 +468,16 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     private let offscreenDrawerOffset: CGFloat = -50
     
-    private var cappedDrawerAnchors: [CGFloat] {
+    private var effectiveDrawerAnchors: [CGFloat] {
+        if let dc = drawerContentViewController as? DrawerContentProvider {
+            let safeAreaInsets: UIEdgeInsets
+            if #available(iOS 11.0, *) {
+                safeAreaInsets = self.view.safeAreaInsets
+            } else {
+                safeAreaInsets = .zero
+            }
+            return dc.drawerAnchorsConsidering(safeAreaInsets: safeAreaInsets).map { min($0, maxDrawerOffset) }
+        }
         return drawerAnchors.map { min($0, maxDrawerOffset) }
     }
     
@@ -520,7 +541,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                 offset -= v
             }
         }
-        let distances = cappedDrawerAnchors.map { ($0, $0 - offset) }
+        let distances = effectiveDrawerAnchors.map { ($0, $0 - offset) }
         return distances.min { (a, b) -> Bool in return abs(a.1) < abs(b.1) }?.0 ?? 0.0
     }
     
