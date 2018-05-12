@@ -9,5 +9,6 @@
 import Foundation
 
 @objc public protocol DrawerContentProvider {
-    func drawerAnchorsConsidering(safeAreaInsets: UIEdgeInsets) -> [CGFloat]
+    @objc func drawerAnchorsConsidering(safeAreaInsets: UIEdgeInsets) -> [CGFloat]
+    @objc optional func updateDrawer(_ drawerViewController: DrawerViewController, for size: CGSize)
 }

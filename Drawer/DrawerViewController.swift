@@ -197,6 +197,11 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         invalidateDrawerAnchors()
     }
     
+    public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        (drawerContentViewController as? DrawerContentProvider)?.updateDrawer?(self, for: size)
+    }
+    
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -204,6 +209,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             moveDrawerToClosestAnchor(animated: animated)
         }
     }
+    
     
     // forward our navigation item to the main view controller
     open override var navigationItem: UINavigationItem {
