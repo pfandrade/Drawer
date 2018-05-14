@@ -76,7 +76,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         fatalError("init(coder:) has not been implemented")
     }
     
-    public private(set) lazy var drawerContainerView: UIView = { () -> UIView in
+    @objc public private(set) lazy var drawerContainerView: UIView = { () -> UIView in
         let view = DrawerContainerView()
         view.backgroundColor = UIColor.clear
         view.layer.shadowColor = UIColor.black.cgColor
@@ -85,7 +85,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return view
     }()
     
-    public private(set) lazy var dimmingView: UIView = { () -> UIView in
+    @objc public private(set) lazy var dimmingView: UIView = { () -> UIView in
         let view = UIView()
         view.backgroundColor = UIColor(white: 0.0, alpha: 0.5)
         let tapGR = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
