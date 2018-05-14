@@ -235,7 +235,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         didSet {
             if isViewLoaded {
                 self.view.setNeedsUpdateConstraints()
-                if !draggingDrawer {
+                if !draggingDrawer && !isDrawerOffscreen {
                     moveDrawerToClosestAnchor()
                 }
             }
@@ -250,7 +250,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             guard drawerAnchors.count > 0 else {
                 fatalError("There must be at least one anchor value")
             }
-            if isViewLoaded && !draggingDrawer {
+            if isViewLoaded && !draggingDrawer && !isDrawerOffscreen {
                 moveDrawerToClosestAnchor()
             }
         }
