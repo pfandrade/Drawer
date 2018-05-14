@@ -8,6 +8,12 @@
 
 import UIKit
 
+private class DrawerContainerView: UIView {
+    override var intrinsicContentSize: CGSize {
+        return CGSize(width: CGFloat.greatestFiniteMagnitude, height: UIViewNoIntrinsicMetric)
+    }
+}
+
 public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate {
 
     @objc public private(set) var mainViewController: UIViewController? {
@@ -71,7 +77,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     public private(set) lazy var drawerContainerView: UIView = { () -> UIView in
-        let view = UIView()
+        let view = DrawerContainerView()
         view.backgroundColor = UIColor.clear
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOffset = CGSize(width: 0, height: -1)
@@ -126,8 +132,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         drawerContainerRightConstraint = drawerContainer.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor)
         drawerContainerHeightConstraint = drawerContainer.heightAnchor.constraint(equalTo: view.heightAnchor)
         drawerContainerHeightConstraint?.priority = UILayoutPriority(rawValue: 900)
-        drawerContainerMaxWidthConstraint = drawerContainer.widthAnchor.constraint(equalToConstant: maxDrawerWidth)
-        drawerContainerMaxWidthConstraint?.priority = UILayoutPriority.defaultHigh
+        drawerContainerMaxWidthConstraint = drawerContainer.widthAnchor.constraint(lessThanOrEqualToConstant: maxDrawerWidth)
         
         drawerContainerLeftConstraint?.isActive = true
         drawerContainerRightConstraint?.isActive = true
@@ -200,6 +205,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         (drawerContentViewController as? DrawerContentProvider)?.updateDrawer?(self, for: size)
+        if !draggingDrawer {
+            coordinator.animate(alongsideTransition: { (context) in
+                self.moveDrawerToClosestAnchor()
+            }, completion: nil)
+            
+        }
     }
     
     open override func viewWillAppear(_ animated: Bool) {
