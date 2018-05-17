@@ -12,4 +12,5 @@ import Foundation
     @objc(drawerAnchorsConsideringSafeAreaInsets:)
     func drawerAnchorsConsidering(safeAreaInsets: UIEdgeInsets) -> [CGFloat]
     @objc optional func updateDrawer(_ drawerViewController: DrawerViewController, for size: CGSize)
+    @objc optional func clippingPathForDrawer(_ drawerViewController: DrawerViewController, in rect: CGRect) -> UIBezierPath
 }

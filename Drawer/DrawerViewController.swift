@@ -9,6 +9,31 @@
 import UIKit
 
 private class DrawerContainerView: UIView {
+    
+    lazy var drawerMaskingView: UIView = { () -> UIView in
+        let view = UIView()
+        view.backgroundColor = UIColor.clear
+        let shapeLayer = CAShapeLayer()
+        shapeLayer.fillColor = UIColor.black.cgColor
+        shapeLayer.path = path?.cgPath
+        view.layer.mask = shapeLayer
+        return view
+    }()
+    
+    var path: UIBezierPath? {
+        didSet {
+            layer.shadowPath = path?.cgPath
+            (drawerMaskingView.layer.mask as! CAShapeLayer).path = path?.cgPath
+        }
+    }
+    
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard let path = path else {
+            return super.point(inside: point, with: event)
+        }
+        return path.contains(point)
+    }
+    
     override var intrinsicContentSize: CGSize {
         return CGSize(width: CGFloat.greatestFiniteMagnitude, height: UIViewNoIntrinsicMetric)
     }
@@ -76,14 +101,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         fatalError("init(coder:) has not been implemented")
     }
     
-    @objc public private(set) lazy var drawerContainerView: UIView = { () -> UIView in
-        let view = DrawerContainerView()
-        view.backgroundColor = UIColor.clear
-        view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOffset = CGSize(width: 0, height: -1)
-        view.layer.shadowOpacity = 0.2
-        return view
-    }()
+    @objc public var drawerContainerView: UIView {
+        return _drawerContainerView
+    }
     
     @objc public private(set) lazy var dimmingView: UIView = { () -> UIView in
         let view = UIView()
@@ -93,14 +113,19 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return view
     }()
     
-    private lazy var drawerMaskingView: UIView = { () -> UIView in
-        let view = UIView()
+    
+    private lazy var _drawerContainerView: DrawerContainerView = { () -> DrawerContainerView in
+        let view = DrawerContainerView()
         view.backgroundColor = UIColor.clear
-        let shapeLayer = CAShapeLayer()
-        shapeLayer.fillColor = UIColor.black.cgColor
-        view.layer.mask = shapeLayer
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOffset = CGSize(width: 0, height: -1)
+        view.layer.shadowOpacity = 0.2
         return view
     }()
+    
+    private var drawerMaskingView: UIView {
+        return _drawerContainerView.drawerMaskingView
+    }
     
     private var drawerContainerHeightConstraint: NSLayoutConstraint?
     private var drawerContainerLeftConstraint: NSLayoutConstraint?
@@ -148,7 +173,6 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         panGestureRecognizer.delaysTouchesEnded = false
         view.addGestureRecognizer(panGestureRecognizer)
         
-        self.drawerContainerView = drawerContainer
         self.view = view
     }
     
@@ -187,11 +211,19 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         super.viewDidLayoutSubviews()
         
         // when we layout we must update the drawer container mask and shadow path
-        let path = UIBezierPath(roundedRect: drawerContainerView.bounds,
-                                byRoundingCorners: [.topLeft, .topRight],
-                                cornerRadii:CGSize(width: drawerCornerRadius, height: drawerCornerRadius)).cgPath
-        drawerContainerView.layer.shadowPath = path
-        (drawerMaskingView.layer.mask as! CAShapeLayer).path = path
+        
+        let clippingPath: UIBezierPath
+        if let drawerContent = drawerContentViewController as? DrawerContentProvider,
+            let path = drawerContent.clippingPathForDrawer?(self, in: drawerContainerView.bounds) {
+            clippingPath = path
+        }
+        else {
+            clippingPath = UIBezierPath(roundedRect: drawerContainerView.bounds,
+                                        byRoundingCorners: [.topLeft, .topRight],
+                                        cornerRadii:CGSize(width: drawerCornerRadius, height: drawerCornerRadius))
+        }
+
+        _drawerContainerView.path = clippingPath
         
         updateDimmingView(for: currentDrawerOffset)
     }
