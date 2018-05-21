@@ -466,7 +466,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
 
         switch gestureRecognizer.state {
         case .possible: break
-        case .began: break
+        case .began: fallthrough
         case .changed:
             let translation = gestureRecognizer.translation(in: scrollView)
             let isScrollingDown = gestureRecognizer.velocity(in: scrollView).y > 0
