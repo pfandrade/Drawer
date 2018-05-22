@@ -213,7 +213,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         // when we layout we must update the drawer container mask and shadow path
         
         let clippingPath: UIBezierPath
-        if let drawerContent = drawerContentViewController as? DrawerContentProvider,
+        if let drawerContent = drawerContentProvider,
             let path = drawerContent.clippingPathForDrawer?(self, in: drawerContainerView.bounds) {
             clippingPath = path
         }
@@ -236,7 +236,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        (drawerContentViewController as? DrawerContentProvider)?.updateDrawer?(self, for: size)
+        drawerContentProvider?.updateDrawer?(self, for: size)
         if !draggingDrawer {
             coordinator.animate(alongsideTransition: { (context) in
                 self.moveDrawerToClosestAnchor()
@@ -422,7 +422,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         case .began:
             drawerOffsetAtDragStart = currentDrawerOffset
             if touchBeganOnDrawer {
-                draggingDrawer = true
+                if !draggingDrawer {
+                    draggingDrawer = true
+                    drawerContentProvider?.drawerDidBeginDragging?(self)
+                }
             }
         case .changed:
             if touchBeganOnDrawer {
@@ -433,22 +436,42 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                 let currentTouchOffset = self.view.frame.height - gestureRecognizer.location(in: self.view).y
                 if currentTouchOffset < drawerOffsetAtDragStart {
                     moveDrawer(to: currentTouchOffset)
-                    draggingDrawer = true
+                    if !draggingDrawer {
+                        draggingDrawer = true
+                        drawerContentProvider?.drawerDidBeginDragging?(self)
+                    }
                 }
                 else {
                     if currentDrawerOffset != drawerOffsetAtDragStart {
                         moveDrawer(to: drawerOffsetAtDragStart)
                     }
-                    draggingDrawer = false
+                    if draggingDrawer {
+                        draggingDrawer = false
+                        drawerContentProvider?.drawerDidEndDragging?(self, at: drawerOffsetAtDragStart)
+                    }
+                    
                 }
             }
         case .cancelled: fallthrough
         case .failed: fallthrough
         case .ended:
+            var target: CGFloat?
             if !effectiveDrawerAnchors.contains(currentDrawerOffset) {
-                moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: self.view).y)
+                let velocity = gestureRecognizer.velocity(in: self.view).y
+                target = targetAnchor(for: currentDrawerOffset, at: velocity)
+                moveDrawer(to: target!, animated: true, velocity: velocity)
             }
-            draggingDrawer = false
+            
+            if draggingDrawer {
+                if let anchor = target {
+                    drawerContentProvider?.drawerDidEndDragging?(self, willAnimateTo: anchor)
+                }
+                else {
+                    drawerContentProvider?.drawerDidEndDragging?(self, at: currentDrawerOffset)
+                }
+                draggingDrawer = false
+            }
+            
         }
     }
     
@@ -478,8 +501,11 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                     drawerOffsetAtDragStart = currentDrawerOffset
                     translationAtDragStart = translation
                     scrollViewOffsetAtDragStart = scrollView.contentOffset
+                    
+                    draggingDrawer = true
+                    drawerContentProvider?.drawerDidBeginDragging?(self)
                 }
-                draggingDrawer = true
+                
                 
                 let scrolledAmount = translation.y - translationAtDragStart.y
                 self.moveDrawer(to: drawerOffsetAtDragStart - scrolledAmount)
@@ -487,18 +513,35 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                 scrollView.showsVerticalScrollIndicator = false
             }
             else {
-                draggingDrawer = false
+                if draggingDrawer {
+                    drawerContentProvider?.drawerDidEndDragging?(self, at: currentDrawerOffset)
+                    draggingDrawer = false
+                }
+                
                 scrollView.showsVerticalScrollIndicator = true
             }
         case .cancelled: fallthrough
         case .failed: fallthrough
         case .ended:
             gestureRecognizer.removeTarget(self, action: nil)
+            var target: CGFloat?
             
             if !effectiveDrawerAnchors.contains(currentDrawerOffset) {
-                moveDrawerToClosestAnchor(animated: true, velocity: gestureRecognizer.velocity(in: scrollView).y)
+                let velocity = gestureRecognizer.velocity(in: self.view).y
+                target = targetAnchor(for: currentDrawerOffset, at: velocity)
+                moveDrawer(to: target!, animated: true, velocity: velocity)
             }
-            draggingDrawer = false
+            
+            if draggingDrawer {
+                if let anchor = target {
+                    drawerContentProvider?.drawerDidEndDragging?(self, willAnimateTo: anchor)
+                }
+                else {
+                    drawerContentProvider?.drawerDidEndDragging?(self, at: currentDrawerOffset)
+                }
+                draggingDrawer = false
+            }
+            
             scrollViewOffsetAtDragStart = .zero
             translationAtDragStart = .zero
         }
@@ -518,16 +561,20 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     private let offscreenDrawerOffset: CGFloat = -50
     
     private var effectiveDrawerAnchors: [CGFloat] {
-        if let dc = drawerContentViewController as? DrawerContentProvider {
+        var anchors = drawerAnchors
+        if let dc = drawerContentProvider {
             let safeAreaInsets: UIEdgeInsets
             if #available(iOS 11.0, *) {
                 safeAreaInsets = self.view.safeAreaInsets
             } else {
                 safeAreaInsets = .zero
             }
-            return dc.drawerAnchorsConsidering(safeAreaInsets: safeAreaInsets).map { min($0, maxDrawerOffset) }
+            
+            if let dcAnchors = dc.anchorsForDrawer?(self, consideringSafeAreaInsets: safeAreaInsets) {
+                anchors = dcAnchors
+            }
         }
-        return drawerAnchors.map { min($0, maxDrawerOffset) }
+        return anchors.map { min($0, maxDrawerOffset) }
     }
     
     private func moveDrawerToClosestAnchor(animated animate: Bool = false, velocity: CGFloat? = nil) {
@@ -683,5 +730,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor, constant: -drawerInsets.right)
             drawerContainerRightConstraint?.isActive = true
         }
+    }
+    
+    private var drawerContentProvider: DrawerContentProvider? {
+        return drawerContentViewController as? DrawerContentProvider
     }
 }

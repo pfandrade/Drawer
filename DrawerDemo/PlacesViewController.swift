@@ -8,8 +8,9 @@
 
 import UIKit
 import MapKit
+import Drawer
 
-class PlacesViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+class PlacesViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, DrawerContentProvider {    
     
     weak var delegate: PlacesViewControllerDelegate?
     
@@ -94,6 +95,22 @@ class PlacesViewController: UIViewController, UITableViewDelegate, UITableViewDa
         return cell
     }
 
+    // MARK: Drawer Content Providing
+    func drawerDidBeginDragging(_ drawerViewController: DrawerViewController) {
+        NSLog("Did begin dragging drawer")
+    }
+    
+    func drawerDidEndDragging(_ drawerViewController: DrawerViewController, at anchor: CGFloat) {
+        NSLog("Did end dragging drawer at \(anchor)")
+    }
+    
+    func drawerDidEndDragging(_ drawerViewController: DrawerViewController, willAnimateTo anchor: CGFloat) {
+        NSLog("Did end dragging drawer will animate \(anchor)")
+    }
+    
+    func drawerDidEndAnimating(_ drawerViewController: DrawerViewController) {
+        NSLog("Did end animating drawer")
+    }
 }
 
 protocol PlacesViewControllerDelegate: class {
