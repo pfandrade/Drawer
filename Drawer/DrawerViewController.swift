@@ -75,6 +75,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                     addView(from: drawerContent, asSubviewOf: self.drawerMaskingView)
                 }
             }
+            invalidateDrawerAnchors()
         }
     }
     
@@ -210,6 +211,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     override public func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
+        _effectiveDrawerAnchors = computeEffectiveDrawerAnchors()
         // when we layout we must update the drawer container mask and shadow path
         
         let clippingPath: UIBezierPath
@@ -341,9 +343,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         moveDrawer(to: effectiveDrawerAnchors.max() ?? CGFloat.greatestFiniteMagnitude, animated: animated)
     }
     
-    @objc open func moveDrawerToAnchor(at offset: CGFloat, animated: Bool) {
+    @objc open func moveDrawerToAnchor(at offset: CGFloat, animated: Bool, completionBlock: ((Bool) -> Void)? = nil) {
         let target = targetAnchor(for: offset)
-        moveDrawer(to: target, animated: animated)
+        moveDrawer(to: target, animated: animated, completionBlock: completionBlock)
     }
     
     @objc(moveDrawerOffscreeAnimated:)
@@ -356,9 +358,22 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     @objc public func invalidateDrawerAnchors() {
+        _effectiveDrawerAnchors = computeEffectiveDrawerAnchors()
         if !draggingDrawer && !isDrawerOffscreen && isViewLoaded {
             moveDrawerToClosestAnchor(animated: self.view.window != nil)
         }
+    }
+    
+    @objc public var currentDrawerOffset: CGFloat {
+        return -drawerContainerView.transform.ty
+    }
+    
+    @objc public var effectiveDrawerAnchors: [CGFloat] {
+        if let eda = _effectiveDrawerAnchors {
+            return eda
+        }
+        _effectiveDrawerAnchors = computeEffectiveDrawerAnchors()
+        return _effectiveDrawerAnchors!
     }
     
     // MARK: - Gestures
@@ -549,10 +564,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     // MARK: aux
     var animating = false
-    private var currentDrawerOffset: CGFloat {
-        return -drawerContainerView.transform.ty
-    }
-    
+
     private var maxDrawerOffset: CGFloat {
         let viewHeight: CGFloat = self.isViewLoaded ? self.view.bounds.height : 480
         return viewHeight-drawerInsets.top
@@ -560,7 +572,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     private let offscreenDrawerOffset: CGFloat = -50
     
-    private var effectiveDrawerAnchors: [CGFloat] {
+    private var _effectiveDrawerAnchors: [CGFloat]?
+    private func computeEffectiveDrawerAnchors() -> [CGFloat]{
         var anchors = drawerAnchors
         if let dc = contentChildViewController {
             let safeAreaInsets: UIEdgeInsets
@@ -582,7 +595,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         moveDrawer(to: anchor, animated: animate, velocity: velocity ?? 0.0)
     }
     
-    private func moveDrawer(to offset: CGFloat, animated animate: Bool = false, velocity: CGFloat = 0.0) {
+    private func moveDrawer(to offset: CGFloat, animated animate: Bool = false, velocity: CGFloat = 0.0, completionBlock: ((Bool) -> Void)? = nil) {
         let offset = min(offset, maxDrawerOffset)
         
         let updateTransformBlock = { () -> Void in
@@ -615,11 +628,18 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             }, completion: { finished -> Void in
                 self.animating = false
                 finish(finished)
+                completionBlock?(finished)
+                if finished {
+                    self.notifyChildViewControllers {
+                        $0.drawerDidEndAnimating?(self)
+                    }
+                }
             })
         }
         else {
             updateTransformBlock()
             finish(true)
+            completionBlock?(true)
         }
     
     }
@@ -740,7 +760,16 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return mainViewController as? DrawerMainChildViewController
     }
     
-    private func notifyChildViewControllers(notificationHandler: (DrawerChildViewController) -> Void) {
-        childViewControllers.compactMap { $0 as? DrawerChildViewController }.forEach { notificationHandler($0) }
+    private func notifyChildViewControllers(notification: (DrawerChildViewController) -> Void) {
+        func notifyChildren(_ children: [UIViewController], notification: (DrawerChildViewController) -> Void) {
+            children.forEach { (child) in
+                if let drawerChild = child as? DrawerChildViewController {
+                    notification(drawerChild)
+                }
+                notifyChildren(child.childViewControllers, notification: notification)
+            }
+        }
+        notifyChildren(childViewControllers, notification: notification)
     }
+    
 }
