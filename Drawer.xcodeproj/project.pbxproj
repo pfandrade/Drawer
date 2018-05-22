@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D7A82FEA20A71C0E007EB247 /* DrawerContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A82FE920A71C0E007EB247 /* DrawerContent.swift */; };
+		D7A82FEA20A71C0E007EB247 /* DrawerChildProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A82FE920A71C0E007EB247 /* DrawerChildProtocols.swift */; };
 		D7D93DA4209DF477002FF333 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D93DA3209DF477002FF333 /* AppDelegate.swift */; };
 		D7D93DA9209DF477002FF333 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D7D93DA7209DF477002FF333 /* Main.storyboard */; };
 		D7D93DAB209DF478002FF333 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D7D93DAA209DF478002FF333 /* Assets.xcassets */; };
@@ -46,7 +46,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D7A82FE920A71C0E007EB247 /* DrawerContent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
+		D7A82FE920A71C0E007EB247 /* DrawerChildProtocols.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DrawerChildProtocols.swift; sourceTree = "<group>"; };
 		D7D93DA1209DF477002FF333 /* DrawerDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DrawerDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D7D93DA3209DF477002FF333 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		D7D93DA8209DF477002FF333 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -125,7 +125,7 @@
 			isa = PBXGroup;
 			children = (
 				D7F8741420A0597E003C36AA /* DrawerViewController.swift */,
-				D7A82FE920A71C0E007EB247 /* DrawerContent.swift */,
+				D7A82FE920A71C0E007EB247 /* DrawerChildProtocols.swift */,
 				D7E6C84320A08AE300E0B632 /* UIViewController+Drawer.swift */,
 				D7F8740A20A05975003C36AA /* Drawer.h */,
 				D7F8740B20A05975003C36AA /* Info.plist */,
@@ -259,7 +259,7 @@
 			files = (
 				D7F8742C20A05B0C003C36AA /* DrawerViewController.swift in Sources */,
 				D7E6C84420A08AE300E0B632 /* UIViewController+Drawer.swift in Sources */,
-				D7A82FEA20A71C0E007EB247 /* DrawerContent.swift in Sources */,
+				D7A82FEA20A71C0E007EB247 /* DrawerChildProtocols.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

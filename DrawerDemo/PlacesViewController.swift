@@ -10,7 +10,7 @@ import UIKit
 import MapKit
 import Drawer
 
-class PlacesViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, DrawerContentProvider {    
+class PlacesViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, DrawerContentChildViewController {    
     
     weak var delegate: PlacesViewControllerDelegate?
     

@@ -213,7 +213,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         // when we layout we must update the drawer container mask and shadow path
         
         let clippingPath: UIBezierPath
-        if let drawerContent = drawerContentProvider,
+        if let drawerContent = contentChildViewController,
             let path = drawerContent.clippingPathForDrawer?(self, in: drawerContainerView.bounds) {
             clippingPath = path
         }
@@ -236,7 +236,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        drawerContentProvider?.updateDrawer?(self, for: size)
+        contentChildViewController?.updateDrawer?(self, for: size)
         if !draggingDrawer {
             coordinator.animate(alongsideTransition: { (context) in
                 self.moveDrawerToClosestAnchor()
@@ -424,7 +424,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             if touchBeganOnDrawer {
                 if !draggingDrawer {
                     draggingDrawer = true
-                    drawerContentProvider?.drawerDidBeginDragging?(self)
+                    notifyChildViewControllers { $0.drawerDidBeginDragging?(self) }
                 }
             }
         case .changed:
@@ -438,7 +438,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                     moveDrawer(to: currentTouchOffset)
                     if !draggingDrawer {
                         draggingDrawer = true
-                        drawerContentProvider?.drawerDidBeginDragging?(self)
+                        notifyChildViewControllers { $0.drawerDidBeginDragging?(self) }
                     }
                 }
                 else {
@@ -447,7 +447,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                     }
                     if draggingDrawer {
                         draggingDrawer = false
-                        drawerContentProvider?.drawerDidEndDragging?(self, at: drawerOffsetAtDragStart)
+                        notifyChildViewControllers { $0.drawerDidEndDragging?(self, at: drawerOffsetAtDragStart) }
                     }
                     
                 }
@@ -464,10 +464,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             
             if draggingDrawer {
                 if let anchor = target {
-                    drawerContentProvider?.drawerDidEndDragging?(self, willAnimateTo: anchor)
+                    notifyChildViewControllers { $0.drawerDidEndDragging?(self, willAnimateTo: anchor) }
                 }
                 else {
-                    drawerContentProvider?.drawerDidEndDragging?(self, at: currentDrawerOffset)
+                    notifyChildViewControllers { $0.drawerDidEndDragging?(self, at: currentDrawerOffset) }
                 }
                 draggingDrawer = false
             }
@@ -503,7 +503,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                     scrollViewOffsetAtDragStart = scrollView.contentOffset
                     
                     draggingDrawer = true
-                    drawerContentProvider?.drawerDidBeginDragging?(self)
+                    notifyChildViewControllers { $0.drawerDidBeginDragging?(self) }
                 }
                 
                 
@@ -514,7 +514,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             }
             else {
                 if draggingDrawer {
-                    drawerContentProvider?.drawerDidEndDragging?(self, at: currentDrawerOffset)
+                    notifyChildViewControllers { $0.drawerDidEndDragging?(self, at: currentDrawerOffset) }
                     draggingDrawer = false
                 }
                 
@@ -534,10 +534,10 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             
             if draggingDrawer {
                 if let anchor = target {
-                    drawerContentProvider?.drawerDidEndDragging?(self, willAnimateTo: anchor)
+                    notifyChildViewControllers { $0.drawerDidEndDragging?(self, willAnimateTo: anchor) }
                 }
                 else {
-                    drawerContentProvider?.drawerDidEndDragging?(self, at: currentDrawerOffset)
+                    notifyChildViewControllers { $0.drawerDidEndDragging?(self, at: currentDrawerOffset) }
                 }
                 draggingDrawer = false
             }
@@ -562,7 +562,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     private var effectiveDrawerAnchors: [CGFloat] {
         var anchors = drawerAnchors
-        if let dc = drawerContentProvider {
+        if let dc = contentChildViewController {
             let safeAreaInsets: UIEdgeInsets
             if #available(iOS 11.0, *) {
                 safeAreaInsets = self.view.safeAreaInsets
@@ -732,7 +732,15 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
-    private var drawerContentProvider: DrawerContentProvider? {
-        return drawerContentViewController as? DrawerContentProvider
+    private var contentChildViewController: DrawerContentChildViewController? {
+        return drawerContentViewController as? DrawerContentChildViewController
+    }
+    
+    private var mainChildViewController: DrawerMainChildViewController? {
+        return mainViewController as? DrawerMainChildViewController
+    }
+    
+    private func notifyChildViewControllers(notificationHandler: (DrawerChildViewController) -> Void) {
+        childViewControllers.compactMap { $0 as? DrawerChildViewController }.forEach { notificationHandler($0) }
     }
 }
