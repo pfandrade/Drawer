@@ -6,16 +6,22 @@
 //  Copyright © 2018 Paulo Andrade. All rights reserved.
 //
 
-import Foundation
+import UIKit
+import QuartzCore
 
 @objc public protocol DrawerChildViewController {
+    @objc optional func drawerShouldBeginDragging(_ drawerViewController: DrawerViewController) -> Bool
     @objc optional func drawerDidBeginDragging(_ drawerViewController: DrawerViewController)
     @objc optional func drawerDidEndDragging(_ drawerViewController: DrawerViewController, at anchor: CGFloat)
     @objc optional func drawerDidEndDragging(_ drawerViewController: DrawerViewController, willAnimateTo anchor: CGFloat)
     @objc optional func drawerDidEndAnimating(_ drawerViewController: DrawerViewController)
+    
+    @objc optional func drawer(_ drawerViewController: DrawerViewController, didMoveTo offset: CGFloat)
 }
 
 @objc public protocol DrawerMainChildViewController: DrawerChildViewController {
+    
+    @objc optional func initialAccessibilityElementForDrawer(_ drawerViewController: DrawerViewController) -> Any?
 
 }
 

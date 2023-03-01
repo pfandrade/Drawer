@@ -8,51 +8,22 @@
 
 import UIKit
 
-private class DrawerContainerView: UIView {
-    
-    lazy var drawerMaskingView: UIView = { () -> UIView in
-        let view = UIView()
-        view.backgroundColor = UIColor.clear
-        let shapeLayer = CAShapeLayer()
-        shapeLayer.fillColor = UIColor.black.cgColor
-        shapeLayer.path = path?.cgPath
-        view.layer.mask = shapeLayer
-        return view
-    }()
-    
-    var path: UIBezierPath? {
-        didSet {
-            layer.shadowPath = path?.cgPath
-            (drawerMaskingView.layer.mask as! CAShapeLayer).path = path?.cgPath
-        }
-    }
-    
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        guard let path = path else {
-            return super.point(inside: point, with: event)
-        }
-        return path.contains(point)
-    }
-    
-    override var intrinsicContentSize: CGSize {
-        return CGSize(width: CGFloat.greatestFiniteMagnitude, height: UIViewNoIntrinsicMetric)
-    }
-}
-
 public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate {
 
+    @objc static let kHighConstraintValue: CGFloat = 10000
+    
     @objc public private(set) var mainViewController: UIViewController? {
         willSet {
             if let mainVC = mainViewController {
                 prepareViewControllerForRemoval(mainVC)
-                mainVC.willMove(toParentViewController: nil)
-                mainVC.removeFromParentViewController()
+                mainVC.willMove(toParent: nil)
+                mainVC.removeFromParent()
             }
         }
         didSet {
             if let mainVC = mainViewController {
-                mainVC.willMove(toParentViewController: self)
-                self.addChildViewController(mainVC)
+                mainVC.willMove(toParent: self)
+                self.addChild(mainVC)
                 if isViewLoaded {
                     addView(from: mainVC, asSubviewOf: self.view)
                 }
@@ -63,14 +34,14 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         willSet {
             if let drawerContent = drawerContentViewController {
                 prepareViewControllerForRemoval(drawerContent)
-                drawerContent.willMove(toParentViewController: nil)
-                drawerContent.removeFromParentViewController()
+                drawerContent.willMove(toParent: nil)
+                drawerContent.removeFromParent()
             }
         }
         didSet {
             if let drawerContent = drawerContentViewController {
-                drawerContent.willMove(toParentViewController: self)
-                self.addChildViewController(drawerContent)
+                drawerContent.willMove(toParent: self)
+                self.addChild(drawerContent)
                 if isViewLoaded {
                     addView(from: drawerContent, asSubviewOf: self.drawerMaskingView)
                 }
@@ -86,16 +57,16 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     @objc public convenience init(mainViewController: UIViewController) {
         self.init()
         self.mainViewController = mainViewController
-        mainViewController.willMove(toParentViewController: self)
-        self.addChildViewController(mainViewController)
+        mainViewController.willMove(toParent: self)
+        self.addChild(mainViewController)
 
     }
     
     @objc public convenience init(mainViewController: UIViewController, drawerContentViewController: UIViewController) {
         self.init(mainViewController: mainViewController)
         self.drawerContentViewController = drawerContentViewController
-        drawerContentViewController.willMove(toParentViewController: self)
-        self.addChildViewController(drawerContentViewController)
+        drawerContentViewController.willMove(toParent: self)
+        self.addChild(drawerContentViewController)
     }
     
     required public init?(coder aDecoder: NSCoder) {
@@ -117,10 +88,11 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     private lazy var _drawerContainerView: DrawerContainerView = { () -> DrawerContainerView in
         let view = DrawerContainerView()
-        view.backgroundColor = UIColor.clear
+//        view.backgroundColor = UIColor.clear
         view.layer.shadowColor = UIColor.black.cgColor
         view.layer.shadowOffset = CGSize(width: 0, height: -1)
         view.layer.shadowOpacity = 0.2
+        view.drawerViewController = self
         return view
     }()
     
@@ -227,6 +199,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
 
         _drawerContainerView.path = clippingPath
         
+        contentChildViewController?.updateDrawer?(self, for: self.view.bounds.size)
         updateDimmingView(for: currentDrawerOffset)
     }
     
@@ -261,11 +234,14 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return mainViewController?.navigationItem  ?? super.navigationItem
     }
 
+    public override var childForStatusBarStyle: UIViewController? {
+        return mainViewController
+    }
     // MARK:- Configuration
     
     // the minimum distance the drawer should keep to the left, right & top margins
     // the bottom value is ignored, instead the first value of drawerAnchors is used
-    @objc public var drawerInsets: UIEdgeInsets = UIEdgeInsetsMake(60.0, 0, 0, 0) {
+    @objc public var drawerInsets: UIEdgeInsets = UIEdgeInsets.init(top: 60.0, left: 0, bottom: 0, right: 0) {
         didSet {
             if isViewLoaded {
                 self.view.setNeedsUpdateConstraints()
@@ -285,6 +261,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                 fatalError("There must be at least one anchor value")
             }
             if isViewLoaded && !draggingDrawer && !isDrawerOffscreen {
+                self.viewSafeAreaInsetsDidChange()
                 moveDrawerToClosestAnchor()
             }
         }
@@ -315,7 +292,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
-    @objc public var maxDrawerWidth: CGFloat = CGFloat.greatestFiniteMagnitude {
+    @objc public var maxDrawerWidth: CGFloat = kHighConstraintValue {
         didSet {
             if isViewLoaded {
                 self.view.setNeedsUpdateConstraints()
@@ -364,8 +341,21 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         }
     }
     
+    @objc public func updateAdditionalSafeAreaInsets() {
+        if let firstAnchor = _effectiveDrawerAnchors?.first, !isDrawerOffscreen {
+            let bottomTabHeight =  firstAnchor - self.view.safeAreaInsets.bottom
+            mainViewController?.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 0, bottom: bottomTabHeight, right: 0)
+        }
+        else {
+            mainViewController?.additionalSafeAreaInsets = .zero
+        }
+        
+        
+        
+    }
+    
     @objc public var currentDrawerOffset: CGFloat {
-        return -drawerContainerView.transform.ty
+        return _drawerContainerView.offset
     }
     
     @objc public var effectiveDrawerAnchors: [CGFloat] {
@@ -381,7 +371,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     // MARK: tap
     
     @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
-        guard !isDrawerOffscreen else {
+        guard !isDrawerOffscreen && canMoveDrawer() else {
             return
         }
         
@@ -395,6 +385,13 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     @objc public private(set) var draggingDrawer = false
     private var drawerOffsetAtDragStart: CGFloat = 0
     private var touchBeganOnDrawer = false
+    
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer is UIPanGestureRecognizer, gestureRecognizer.view == self.view {
+            return canMoveDrawer()
+        }
+        return true
+    }
     
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         guard !isDrawerOffscreen  else {
@@ -487,6 +484,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                 draggingDrawer = false
             }
             
+        @unknown default:
+            fatalError()
         }
     }
     
@@ -513,6 +512,9 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             
             if shouldScrollDownDragDrawer || shouldScrollUpDragDrawer {
                 if !draggingDrawer {
+                    if !canMoveDrawer() {
+                        return
+                    }
                     drawerOffsetAtDragStart = currentDrawerOffset
                     translationAtDragStart = translation
                     scrollViewOffsetAtDragStart = scrollView.contentOffset
@@ -559,6 +561,8 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             
             scrollViewOffsetAtDragStart = .zero
             translationAtDragStart = .zero
+        @unknown default:
+            fatalError()
         }
     }
     
@@ -572,7 +576,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     private let offscreenDrawerOffset: CGFloat = -50
     
-    private var _effectiveDrawerAnchors: [CGFloat]?
+    private var _effectiveDrawerAnchors: [CGFloat]? {
+        didSet {
+            updateAdditionalSafeAreaInsets()
+        }
+    }
+    
     private func computeEffectiveDrawerAnchors() -> [CGFloat]{
         var anchors = drawerAnchors
         if let dc = contentChildViewController {
@@ -598,15 +607,27 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     private func moveDrawer(to offset: CGFloat, animated animate: Bool = false, velocity: CGFloat = 0.0, completionBlock: ((Bool) -> Void)? = nil) {
         let offset = min(offset, maxDrawerOffset)
         
-        let updateTransformBlock = { () -> Void in
-            self.drawerContainerView.transform = CGAffineTransform(translationX: 0, y: -offset)
+        let updateViewsBlock = { () -> Void in
+            self._drawerContainerView.offset = offset
             self.updateDimmingView(for: offset)
         }
 
         let finish = { (finished: Bool) -> Void in
             if finished && self.currentDrawerOffset < 0 {
                 self.drawerContainerView.isHidden = true
+                UIAccessibility.post(notification: .screenChanged, argument: self.mainViewController?.view)
             }
+            else {
+                if self.currentDrawerOffset == self.effectiveDrawerAnchors.min() ?? 0.0 {
+                    // we're at the lowest position
+                    let initialAccElement = (self.mainViewController as? DrawerMainChildViewController)?.initialAccessibilityElementForDrawer?(self)
+                    UIAccessibility.post(notification: .screenChanged, argument: initialAccElement)
+                }
+                else {
+                    UIAccessibility.post(notification: .layoutChanged, argument: nil)
+                }
+            }
+            self.updateAdditionalSafeAreaInsets()
         }
         
         if offset >= 0 {
@@ -624,7 +645,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
                            initialSpringVelocity: initialVelocity,
                            options: [.beginFromCurrentState],
                            animations: {
-                            updateTransformBlock()
+                            updateViewsBlock()
             }, completion: { finished -> Void in
                 self.animating = false
                 finish(finished)
@@ -637,7 +658,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
             })
         }
         else {
-            updateTransformBlock()
+            updateViewsBlock()
             finish(true)
             completionBlock?(true)
         }
@@ -670,7 +691,7 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     private func prepareViewControllerForRemoval(_ viewController: UIViewController) {
-        guard childViewControllers.contains(viewController) else {
+        guard children.contains(viewController) else {
             return
         }
         if isViewLoaded && viewController.isViewLoaded && viewController.view.superview == self.view {
@@ -714,12 +735,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     
     
     private func updateConstraintsToPinDrawerLeft() {
-        if drawerContainerLeftConstraint?.relation != NSLayoutRelation.equal {
+        if drawerContainerLeftConstraint?.relation != NSLayoutConstraint.Relation.equal {
             drawerContainerLeftConstraint?.isActive = false
             drawerContainerLeftConstraint = drawerContainerView.leftAnchor.constraint(equalTo: view.leftAnchor, constant: drawerInsets.left)
             drawerContainerLeftConstraint?.isActive = true
         }
-        if drawerContainerRightConstraint?.relation != NSLayoutRelation.lessThanOrEqual {
+        if drawerContainerRightConstraint?.relation != NSLayoutConstraint.Relation.lessThanOrEqual {
             drawerContainerRightConstraint?.isActive = false
             drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor, constant: -drawerInsets.right)
             drawerContainerRightConstraint?.isActive = true
@@ -727,12 +748,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     private func updateConstraintsToPinDrawerRight() {
-        if drawerContainerRightConstraint?.relation != NSLayoutRelation.equal {
+        if drawerContainerRightConstraint?.relation != NSLayoutConstraint.Relation.equal {
             drawerContainerRightConstraint?.isActive = false
             drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -drawerInsets.right)
             drawerContainerRightConstraint?.isActive = true
         }
-        if drawerContainerLeftConstraint?.relation != NSLayoutRelation.greaterThanOrEqual {
+        if drawerContainerLeftConstraint?.relation != NSLayoutConstraint.Relation.greaterThanOrEqual {
             drawerContainerLeftConstraint?.isActive = false
             drawerContainerLeftConstraint = drawerContainerView.leftAnchor.constraint(greaterThanOrEqualTo: view.leftAnchor, constant: drawerInsets.left)
             drawerContainerLeftConstraint?.isActive = true
@@ -740,12 +761,12 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
     }
     
     private func updateConstraintsToCenterDrawer() {
-        if drawerContainerLeftConstraint?.relation != NSLayoutRelation.greaterThanOrEqual {
+        if drawerContainerLeftConstraint?.relation != NSLayoutConstraint.Relation.greaterThanOrEqual {
             drawerContainerLeftConstraint?.isActive = false
             drawerContainerLeftConstraint = drawerContainerView.leftAnchor.constraint(greaterThanOrEqualTo: view.leftAnchor, constant: drawerInsets.left)
             drawerContainerLeftConstraint?.isActive = true
         }
-        if drawerContainerRightConstraint?.relation != NSLayoutRelation.lessThanOrEqual {
+        if drawerContainerRightConstraint?.relation != NSLayoutConstraint.Relation.lessThanOrEqual {
             drawerContainerRightConstraint?.isActive = false
             drawerContainerRightConstraint = drawerContainerView.rightAnchor.constraint(lessThanOrEqualTo: view.rightAnchor, constant: -drawerInsets.right)
             drawerContainerRightConstraint?.isActive = true
@@ -760,16 +781,129 @@ public class DrawerViewController: UIViewController, UIGestureRecognizerDelegate
         return mainViewController as? DrawerMainChildViewController
     }
     
+    private func canMoveDrawer() -> Bool {
+        return children
+            .compactMap { ($0 as? DrawerChildViewController)?.drawerShouldBeginDragging?(self) }
+            .reduce(true) { $0 && $1 }
+    }
+    
     private func notifyChildViewControllers(notification: (DrawerChildViewController) -> Void) {
         func notifyChildren(_ children: [UIViewController], notification: (DrawerChildViewController) -> Void) {
             children.forEach { (child) in
                 if let drawerChild = child as? DrawerChildViewController {
                     notification(drawerChild)
                 }
-                notifyChildren(child.childViewControllers, notification: notification)
+                notifyChildren(child.children, notification: notification)
             }
         }
-        notifyChildren(childViewControllers, notification: notification)
+        notifyChildren(children, notification: notification)
     }
     
+    fileprivate func movingContainerView(_ containerView: DrawerContainerView, to offset: CGFloat) {
+        notifyChildViewControllers { $0.drawer?(self, didMoveTo: offset) }
+    }
+}
+
+
+
+
+
+private class DrawerContainerView: UIView {
+    
+    weak var drawerViewController: DrawerViewController?
+    
+    lazy var drawerMaskingView: UIView = { () -> UIView in
+        let view = UIView()
+        view.backgroundColor = UIColor.clear
+        let shapeLayer = CAShapeLayer()
+        shapeLayer.fillColor = UIColor.black.cgColor
+        shapeLayer.path = path?.cgPath
+        view.layer.mask = shapeLayer
+        return view
+    }()
+    
+    var path: UIBezierPath? {
+        didSet {
+            layer.shadowPath = path?.cgPath
+            (drawerMaskingView.layer.mask as! CAShapeLayer).path = path?.cgPath
+        }
+    }
+    
+    
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hitView = super.hitTest(point, with: event)
+        if let path = path, let hv = hitView, hv.isDescendant(of: drawerMaskingView) {
+            if !path.contains(point) {
+                return nil
+            }
+        }
+        return hitView
+    }
+    
+    override var intrinsicContentSize: CGSize {
+        return CGSize(width: DrawerViewController.kHighConstraintValue, height: UIView.noIntrinsicMetric)
+    }
+    
+    override class var layerClass: AnyClass {
+        return DrawerContainerViewLayer.self
+    }
+    
+    var offset: CGFloat {
+        get {
+            return (self.layer as? DrawerContainerViewLayer)?.offset ?? 0.0
+        }
+        set {
+            (self.layer as? DrawerContainerViewLayer)?.offset = newValue
+        }
+    }
+    
+    override func display(_ layer: CALayer) {
+        let offset = (layer as? DrawerContainerViewLayer)?.presentation()?.offset ?? 0.0
+        self.transform = CGAffineTransform(translationX: 0, y: -offset)
+        drawerViewController?.movingContainerView(self, to: offset)
+    }
+}
+
+
+private class DrawerContainerViewLayer: CALayer {
+    @NSManaged var offset: CGFloat
+    
+    override init() {
+        super.init()
+    }
+    
+    override init(layer: Any) {
+        super.init(layer: layer)
+        if let dcvl = layer as? DrawerContainerViewLayer {
+            offset = dcvl.offset
+        }
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
+    
+    override class func needsDisplay(forKey key: String) -> Bool {
+        if key == "offset" {
+            return true
+        }
+        return super.needsDisplay(forKey: key)
+    }
+    
+    override func action(forKey event: String) -> CAAction? {
+        if event == "offset" {
+            if let bgAnimation = super.action(forKey: "backgroundColor") as? CABasicAnimation,
+                let animation = bgAnimation.copy() as? CABasicAnimation {
+                animation.keyPath = event
+                if let pLayer = presentation() {
+                    animation.fromValue = pLayer.offset
+                }
+                animation.toValue = nil
+                return animation
+            }
+            setNeedsDisplay()
+            return NSNull()
+        }
+        return super.action(forKey: event)
+    }
 }

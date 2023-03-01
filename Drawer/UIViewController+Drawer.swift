@@ -9,7 +9,7 @@
 import UIKit
 
 public extension UIViewController {
-    @objc public var drawerViewController: DrawerViewController? {
+    @objc var drawerViewController: DrawerViewController? {
         return (parent as? DrawerViewController) ?? parent?.drawerViewController
     }
 }
